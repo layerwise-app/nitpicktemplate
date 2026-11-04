@@ -1,53 +1,25 @@
-import {
-  ErrorComponent,
-  Link,
-  rootRouteId,
-  useMatch,
-  useRouter,
-} from '@tanstack/react-router'
-import type { ErrorComponentProps } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router';
+import type { ErrorComponentProps } from '@tanstack/react-router';
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
-  const router = useRouter()
-  const isRoot = useMatch({
-    strict: false,
-    select: (state) => state.id === rootRouteId,
-  })
-
-  console.error(error)
+  const router = useRouter();
+  console.error(error);
 
   return (
-    <div className="min-w-0 flex-1 p-4 flex flex-col items-center justify-center gap-6">
-      <ErrorComponent error={error} />
-      <div className="flex gap-2 items-center flex-wrap">
-        <button
-          onClick={() => {
-            router.invalidate()
-          }}
-          className={`px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold`}
-        >
-          Try Again
+    <section className='mx-auto flex max-w-[1240px] flex-col items-start px-5 pb-28 pt-24 sm:px-8 md:pt-32'>
+      <p className='eyebrow'>Error</p>
+      <h1 className='display mt-4 text-[44px] sm:text-[56px]'>Something broke on our side.</h1>
+      <p className='lede mt-5 max-w-[46ch] text-[17px] leading-7'>
+        The page couldn’t load. Try again, and if it keeps happening, come back in a few minutes.
+      </p>
+      <div className='mt-10 flex flex-wrap gap-3'>
+        <button type='button' className='btn btn-primary' onClick={() => router.invalidate()}>
+          Try again
         </button>
-        {isRoot ? (
-          <Link
-            to="/"
-            className={`px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold`}
-          >
-            Home
-          </Link>
-        ) : (
-          <Link
-            to="/"
-            className={`px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold`}
-            onClick={(e) => {
-              e.preventDefault()
-              window.history.back()
-            }}
-          >
-            Go Back
-          </Link>
-        )}
+        <Link to='/' className='btn btn-ghost'>
+          Back to home
+        </Link>
       </div>
-    </div>
-  )
+    </section>
+  );
 }

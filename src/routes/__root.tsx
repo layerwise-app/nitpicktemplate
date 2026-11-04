@@ -1,18 +1,20 @@
 /// <reference types="vite/client" />
 import {
+  createRootRouteWithContext,
   HeadContent,
   Outlet,
-  Scripts,
-  createRootRouteWithContext
+  Scripts
 } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
-import { ThemeProvider } from 'next-themes';
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary';
 import { NotFound } from '~/components/NotFound';
-import { Toaster } from '~/components/ui/sonner';
-import { TooltipProvider } from '~/components/ui/tooltip';
+import { SiteFooter } from '~/components/site/SiteFooter';
+import { SiteHeader } from '~/components/site/SiteHeader';
+import { TopLight } from '~/components/site/TopLight';
 import { site } from '~/lib/site';
+import { fontPreloads, themeCss } from '~/lib/theme';
+import { siteConfig } from '~/site.config';
 import { seo } from '~/utils/seo';
 import '~/styles/app.css';
 
@@ -24,6 +26,8 @@ export const Route = createRootRouteWithContext<{
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      { name: 'theme-color', content: siteConfig.colors.background },
+      { name: 'color-scheme', content: 'dark' },
       ...(site.googleSiteVerification
         ? [
             {
@@ -34,7 +38,19 @@ export const Route = createRootRouteWithContext<{
         : []),
       ...seo({ title: site.name, description: site.description }).meta
     ],
-    links: [{ rel: 'icon', href: '/favicon.ico' }]
+    links: [
+      ...fontPreloads.map((href) => ({
+        rel: 'preload',
+        href,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous' as const
+      })),
+      { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      { rel: 'manifest', href: '/site.webmanifest' }
+    ]
   }),
   errorComponent: (props) => (
     <RootDocument>
@@ -55,22 +71,21 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang='en' suppressHydrationWarning>
+    <html lang='en'>
       <head>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme CSS built from site.config.ts */}
+        <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider
-          attribute='class'
-          defaultTheme='system'
-          enableSystem
-          disableTransitionOnChange
-        >
-          <TooltipProvider>
+        <div className='relative flex min-h-dvh flex-col overflow-x-clip'>
+          <TopLight />
+          <SiteHeader />
+          <main id='main' className='relative z-[1] flex-1 outline-none' tabIndex={-1}>
             {children}
-            <Toaster />
-          </TooltipProvider>
-        </ThemeProvider>
+          </main>
+          <SiteFooter />
+        </div>
         <Scripts />
       </body>
     </html>

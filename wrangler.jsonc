@@ -30,11 +30,7 @@
       "entrypoint": "ProjectEmail"
     }
   ],
-  "vars": {
-    "BETTER_AUTH_URL": "",
-    "BETTER_AUTH_SECRET": ""
-  },
-  "secrets": {
-    "required": ["AUTH_EMAIL_URL"]
-  }
+  // Optional secret: IP_HASH_SALT salts the IP hash used by the demo form's
+  // rate limit. Set it in the Worker environment for production.
+  "vars": {}
 }
