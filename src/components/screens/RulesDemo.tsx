@@ -26,9 +26,11 @@ export function RulesDemo() {
     });
 
   return (
-    <div className='panel grid overflow-hidden lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]'>
+    // `overflow-clip` rounds the corners without making the panel a scroll
+    // container, so the rule list can stick beside the diff on desktop.
+    <div className='panel grid overflow-clip lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]'>
       <div className='border-b border-line bg-background/30 lg:border-b-0 lg:border-r'>
-        <div className='lg:sticky lg:top-16'>
+        <div className='lg:sticky lg:top-16 lg:max-h-[calc(100dvh-4rem)] lg:overflow-y-auto'>
         <div className='flex h-12 items-center justify-between border-b border-line px-5 text-[13px]'>
           <span className='font-medium text-foreground'>Review rules</span>
           <span className='font-mono text-[12px] text-subtle tabular' aria-live='polite'>

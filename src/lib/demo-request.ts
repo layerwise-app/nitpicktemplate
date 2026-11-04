@@ -153,6 +153,46 @@ export async function hashIp(ip: string, salt: string): Promise<string> {
     .join('');
 }
 
+/** Name of the stored salt in the secrets store. */
+export const IP_HASH_SALT_KEY = 'ip_hash_salt';
+
+/** 32 random bytes, hex encoded. */
+export function generateSalt(): string {
+  return [...crypto.getRandomValues(new Uint8Array(32))]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Where the server keeps values it generates for itself. D1 on the server. */
+export type SecretStore = {
+  getSecret(key: string): Promise<string | null>;
+  /**
+   * Saves `value` unless `key` already has one, then returns the saved value.
+   * When two first requests race, both get the one that was saved first.
+   */
+  saveSecretIfMissing(key: string, value: string): Promise<string>;
+};
+
+/**
+ * The salt for visitor IP hashes. `override` (the `IP_HASH_SALT` secret) wins
+ * when set. Otherwise a random salt is made on first use and saved, so it's
+ * unique to this site and never appears in the code.
+ */
+export async function getIpHashSalt({
+  override,
+  store,
+  generate = generateSalt
+}: {
+  override?: string;
+  store: SecretStore;
+  generate?: () => string;
+}): Promise<string> {
+  if (override) return override;
+  const saved = await store.getSecret(IP_HASH_SALT_KEY);
+  if (saved) return saved;
+  return store.saveSecretIfMissing(IP_HASH_SALT_KEY, generate());
+}
+
 /** Storage the submission flow needs. The server backs it with D1. */
 export type DemoRequestStore = {
   countAttemptsSince(ipHash: string, since: Date): Promise<number>;

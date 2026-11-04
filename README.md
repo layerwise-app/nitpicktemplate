@@ -184,9 +184,13 @@ size, and code host.
   - The same email twice shows "already on the list" and adds no row.
   - Each visitor gets 5 tries an hour.
 - **Rate limit storage:** visitors are counted by a salted hash of their IP
-  address, and the raw address is never stored. To use your own salt, set a
-  secret named `IP_HASH_SALT` in the published Worker's environment. Without
-  one, a fixed salt built into the code is used.
+  address, and the raw address is never stored. The salt is random, made on
+  the first submission, and kept in the `app_secrets` table, so each site has
+  its own and none is in the code. The local preview and the published site
+  each make their own. Keep the value private. If you delete the row, a new
+  salt is made on the next submission, and the rate limit starts over. To set
+  the salt yourself instead, add a secret named `IP_HASH_SALT` to the published
+  Worker's environment; it takes priority over the stored one.
 - The rules live in `src/lib/demo-request.ts`, with tests in
   `src/lib/demo-request.test.ts`.
 

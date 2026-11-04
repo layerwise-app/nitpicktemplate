@@ -3,10 +3,13 @@ import {
   type DemoRequest,
   type DemoRequestDeps,
   type DemoRequestStore,
+  getIpHashSalt,
   hashIp,
+  IP_HASH_SALT_KEY,
   isFreeEmailDomain,
   OWNER_EMAIL_DAILY_CAP,
   RATE_LIMIT,
+  type SecretStore,
   submitDemoRequest,
   validateDemoRequest,
   validateEmail
@@ -236,6 +239,65 @@ describe('rate limit', () => {
     expect(a).not.toContain('203.0.113.7');
     expect(a).not.toBe(b);
     expect(await hashIp('203.0.113.7', 'salt-one')).toBe(a);
+  });
+});
+
+describe('IP hash salt', () => {
+  /** Mirrors the D1 table: a key keeps the first value saved for it. */
+  function secretStore() {
+    const saved = new Map<string, string>();
+    const store: SecretStore = {
+      getSecret: vi.fn(async (key: string) => saved.get(key) ?? null),
+      saveSecretIfMissing: vi.fn(async (key: string, value: string) => {
+        if (!saved.has(key)) saved.set(key, value);
+        return saved.get(key)!;
+      })
+    };
+    return { store, saved };
+  }
+
+  it('generates a random salt on first use and saves it', async () => {
+    const { store, saved } = secretStore();
+    const salt = await getIpHashSalt({ store });
+    expect(salt).toMatch(/^[0-9a-f]{64}$/);
+    expect(saved.get(IP_HASH_SALT_KEY)).toBe(salt);
+  });
+
+  it('reads the saved salt on later requests instead of making a new one', async () => {
+    const { store } = secretStore();
+    const generate = vi.fn(() => 'a'.repeat(64));
+    const first = await getIpHashSalt({ store, generate });
+    const second = await getIpHashSalt({ store, generate });
+    expect(second).toBe(first);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(store.saveSecretIfMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it('agrees on one salt when the first requests race', async () => {
+    const { store, saved } = secretStore();
+    const salts = await Promise.all(
+      Array.from({ length: 5 }, () => getIpHashSalt({ store }))
+    );
+    expect(new Set(salts).size).toBe(1);
+    expect(salts[0]).toBe(saved.get(IP_HASH_SALT_KEY));
+  });
+
+  it('gives each site its own salt, so no salt ships with the template', async () => {
+    const one = await getIpHashSalt({ store: secretStore().store });
+    const two = await getIpHashSalt({ store: secretStore().store });
+    expect(one).not.toBe(two);
+    expect(await hashIp('203.0.113.7', one)).not.toBe(
+      await hashIp('203.0.113.7', two)
+    );
+  });
+
+  it('uses IP_HASH_SALT when it is set and leaves the database alone', async () => {
+    const { store, saved } = secretStore();
+    expect(await getIpHashSalt({ override: 'from-secret', store })).toBe(
+      'from-secret'
+    );
+    expect(store.getSecret).not.toHaveBeenCalled();
+    expect(saved.size).toBe(0);
   });
 });
 

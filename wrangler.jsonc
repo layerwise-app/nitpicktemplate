@@ -31,6 +31,7 @@
     }
   ],
   // Optional secret: IP_HASH_SALT salts the IP hash used by the demo form's
-  // rate limit. Set it in the Worker environment for production.
+  // rate limit. Without it, a random salt is made on first use and stored in
+  // the `app_secrets` table.
   "vars": {}
 }

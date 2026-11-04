@@ -3,13 +3,15 @@ import { getRequestHeader } from '@tanstack/react-start/server';
 import { env } from 'cloudflare:workers';
 import { and, count, eq, gte, isNotNull, lt } from 'drizzle-orm';
 import { db } from '~/db';
-import { demoRequestAttempts, demoRequests } from '~/db/schema';
+import { appSecrets, demoRequestAttempts, demoRequests } from '~/db/schema';
 import {
   type DemoRequest,
   type DemoRequestInput,
   type DemoRequestStore,
+  getIpHashSalt,
   hashIp,
   RATE_LIMIT,
+  type SecretStore,
   submitDemoRequest
 } from '~/lib/demo-request';
 import { siteConfig } from '~/site.config';
@@ -17,11 +19,35 @@ import { siteConfig } from '~/site.config';
 declare global {
   namespace Cloudflare {
     interface Env {
-      /** Optional secret that salts the IP hash for the form's rate limit. */
+      /**
+       * Optional secret that salts the IP hash for the form's rate limit.
+       * Without it, a random salt is made on first use and kept in the
+       * `app_secrets` table.
+       */
       IP_HASH_SALT?: string;
     }
   }
 }
+
+const d1Secrets: SecretStore = {
+  async getSecret(key) {
+    const [row] = await db
+      .select({ value: appSecrets.value })
+      .from(appSecrets)
+      .where(eq(appSecrets.key, key));
+    return row?.value ?? null;
+  },
+  async saveSecretIfMissing(key, value) {
+    // One transaction: insert unless present, then read whichever value won.
+    const [, rows] = await db.batch([
+      db.insert(appSecrets).values({ key, value }).onConflictDoNothing({ target: appSecrets.key }),
+      db.select({ value: appSecrets.value }).from(appSecrets).where(eq(appSecrets.key, key))
+    ]);
+    const saved = rows[0]?.value;
+    if (!saved) throw new Error(`[demo] could not save secret ${key}`);
+    return saved;
+  }
+};
 
 const d1Store: DemoRequestStore = {
   async countAttemptsSince(ipHash, since) {
@@ -123,7 +149,7 @@ export const requestDemo = createServerFn({ method: 'POST' })
     website: input?.website
   }))
   .handler(async ({ data }) => {
-    const salt = env.IP_HASH_SALT || `${siteConfig.product}-demo-rate-limit`;
+    const salt = await getIpHashSalt({ override: env.IP_HASH_SALT, store: d1Secrets });
     return submitDemoRequest(data, {
       store: d1Store,
       ipHash: await hashIp(visitorIp(), salt),

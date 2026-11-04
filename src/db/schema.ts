@@ -40,3 +40,16 @@ export const demoRequestAttempts = sqliteTable(
     index('demo_request_attempts_created_at_idx').on(table.createdAt)
   ]
 );
+
+/**
+ * Values the server generates for its own use, such as the salt for the demo
+ * form's IP hashes (`ip_hash_salt`). Created on first use and never sent to
+ * the browser. Deleting a row makes a new value on next use.
+ */
+export const appSecrets = sqliteTable('app_secrets', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date())
+});
